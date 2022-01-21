@@ -4,12 +4,16 @@ const char* setup_ap_ssid = "QuestEyes-Setup-000000";
 const char* setup_ap_pass = "questeyes";
 
 int remoteSetup(){
+    //prep the IP address
+    IPAddress local_ip(192,168,1,1);
+    IPAddress gateway(192,168,1,1);
+    IPAddress subnet(255,255,255,0);
     //setup web server
     WiFiServer server(80);
     //start the wifi hotspot for setup
     WiFi.softAP(setup_ap_ssid, setup_ap_pass);
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.println("AP IP address: " + String(myIP));
+    WiFi.softAPConfig(local_ip, gateway, subnet);
+    Serial.println("AP serving on: " + String(local_ip));
     //start the web server
     server.begin();
     //start listening for clients

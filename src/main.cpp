@@ -9,8 +9,15 @@ const char* setup_ap_pass = "questeyes";
 // setup runs one time when reset is pressed or the board is powered
 void setup() {
   declarePins();
+  //prepare storage to check for wifi credentials
   Preferences storage;
   storage.begin("settings", false);
+
+  //TODO: CHECK IF POWER BUTTON IS HELD LONG ENOUGH TO CLEAR CREDENTIALS AND RESET
+  //TODO: HAVE IT SO THAT THE LEDS GRADUALLY LIGHT UNTIL RESET
+  //if power button is held, reset
+
+  //if reset didnt happen, continue with setup
   //get wifi ssid and password from storage
   String ssid = storage.getString("ssid");
   String password = storage.getString("password");
