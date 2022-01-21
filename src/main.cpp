@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include "remotesetup.h"
+#include "otaupdates.h"
 
 const char* setup_ap_ssid = "QuestEyes-Setup-000000";
 const char* setup_ap_pass = "questeyes";
@@ -29,7 +30,9 @@ void setup() {
     WiFi.begin(ssid.c_str(), password.c_str());
     int timeout = 0;
     while(WiFi.status() != WL_CONNECTED && timeout < 30000){
+
       //TODO: SETUP LED FLASHING PULSING WHILE TRYING TO CONNECT
+
       delay(100);
       timeout += 100;
     }
@@ -37,20 +40,28 @@ void setup() {
     if(WiFi.status() == WL_CONNECTED){
       Serial.println("WiFi connected successfully.");
       Serial.println("IP address: " + String(WiFi.localIP()));
+
       //TODO: SETUP LED GOING GREEN AFTER A SUCCESSFUL CONNECTION
+
+      //TODO: SETUP CAMERA SYSTEM READY TO STREAM
+
       return;
     }
     //if failed to connect, start remote setup.
     else {
       Serial.println("Failed to connect to WiFi after 30 seconds - starting remote setup...");
+
       //TODO: SETUP LED FLASHING ORANGE AFTER A FAILED CONNECTION
+
       remoteSetup();
     }
   }
   //if ssid and password are empty, start remote setup.
   else {
     Serial.println("No Wifi credentials found - starting remote setup...");
+
     //TODO: SETUP LED FLASHING ORANGE
+
     remoteSetup();
   }
 }
@@ -58,9 +69,15 @@ void setup() {
 // declare pins on the board
 void declarePins() {
 
+  //TODO: DECLARE PINS
+  
 }
 
 // main loop
 void loop() {
+  //call the OTA system
+  listenForOTA();
+
+  //TODO: SETUP CAMERA STREAM TO SERVER
   
 }
