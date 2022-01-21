@@ -5,6 +5,6 @@
 #include <Preferences.h>
 #include <WiFi.h>
 
-int remoteSetup();
+int remoteSetup(const char* setup_ssid, const char* setup_password);
 
 #endif

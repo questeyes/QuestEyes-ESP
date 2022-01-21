@@ -1,9 +1,6 @@
 #include "remotesetup.h"
 
-const char* setup_ap_ssid = "QuestEyes-Setup-000000";
-const char* setup_ap_pass = "questeyes";
-
-int remoteSetup(){
+int remoteSetup(const char* setup_ssid, const char* setup_password) {
     //prep the IP address
     IPAddress local_ip(192,168,1,1);
     IPAddress gateway(192,168,1,1);
@@ -11,7 +8,7 @@ int remoteSetup(){
     //setup web server
     WiFiServer server(80);
     //start the wifi hotspot for setup
-    WiFi.softAP(setup_ap_ssid, setup_ap_pass);
+    WiFi.softAP(setup_ssid, setup_password);
     WiFi.softAPConfig(local_ip, gateway, subnet);
     Serial.println("AP serving on: " + String(local_ip));
     //start the web server

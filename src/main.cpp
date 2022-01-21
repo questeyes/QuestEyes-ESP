@@ -1,11 +1,20 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 #include "remotesetup.h"
-#include "otaupdates.h"
 
 const char* setup_ap_ssid = "QuestEyes-Setup-000000";
 const char* setup_ap_pass = "questeyes";
+
+// declare pins on the board
+void declarePins() {
+
+  //TODO: DECLARE PINS
+  
+}
 
 // setup runs one time when reset is pressed or the board is powered
 void setup() {
@@ -43,6 +52,37 @@ void setup() {
 
       //TODO: SETUP LED GOING GREEN AFTER A SUCCESSFUL CONNECTION
 
+      //activate the OTA system
+      Serial.println("Initializing OTA system...");
+      ArduinoOTA
+        .onStart([]() {
+            String type;
+            
+            if (ArduinoOTA.getCommand() == U_FLASH)
+                type = "sketch";
+            else
+                type = "filesystem";
+
+            Serial.println("OTA start updating " + type);
+        })
+        .onEnd([]() {
+            Serial.println("\nOTA finished. System rebooting...");
+            ESP.restart();
+        })
+        .onProgress([](unsigned int progress, unsigned int total) {
+            Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+        })
+        .onError([](ota_error_t error) {
+            Serial.printf("Error[%u]: ", error);
+            if (error == OTA_AUTH_ERROR) Serial.println("OTA authentication Failed");
+            else if (error == OTA_BEGIN_ERROR) Serial.println("OTA failed to start");
+            else if (error == OTA_CONNECT_ERROR) Serial.println("OTA failed to connect");
+            else if (error == OTA_RECEIVE_ERROR) Serial.println("OTA failed to recieve");
+            else if (error == OTA_END_ERROR) Serial.println("OTA failed to end");
+        });
+        ArduinoOTA.begin();
+        Serial.println("OTA system ready to receive.");
+
       //TODO: SETUP CAMERA SYSTEM READY TO STREAM
 
       return;
@@ -53,7 +93,7 @@ void setup() {
 
       //TODO: SETUP LED FLASHING ORANGE AFTER A FAILED CONNECTION
 
-      remoteSetup();
+      remoteSetup(setup_ap_ssid, setup_ap_pass);
     }
   }
   //if ssid and password are empty, start remote setup.
@@ -62,21 +102,14 @@ void setup() {
 
     //TODO: SETUP LED FLASHING ORANGE
 
-    remoteSetup();
+    remoteSetup(setup_ap_ssid, setup_ap_pass);
   }
-}
-
-// declare pins on the board
-void declarePins() {
-
-  //TODO: DECLARE PINS
-  
 }
 
 // main loop
 void loop() {
   //call the OTA system
-  listenForOTA();
+  ArduinoOTA.handle();
 
   //TODO: SETUP CAMERA STREAM TO SERVER
   
