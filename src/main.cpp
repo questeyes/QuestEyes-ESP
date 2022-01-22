@@ -1,3 +1,19 @@
+/** 
+ *  QuestEyes Firmware Package
+ *  Copyright (C) 2022 Steven Wheeler.
+ *  This program is proprietary software. There is NO public license.
+ *  Unauthorized redistribution of this software is strictly prohibited.
+ *  
+ *  This program includes the following software packages:
+ *    Micro-RTSP by Kevin Hester - Licenced under the MIT Licence.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+ *  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ *  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+ *  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
+ *  OR OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #include "main.h"
 #include "unitidentifier.h"
 
@@ -5,6 +21,8 @@ OV2640 cam;
 
 // declare pins on the board
 void declarePins() {
+
+  //TODO: DECLARE PINS
 
 }
 
