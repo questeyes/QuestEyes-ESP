@@ -1,6 +1,6 @@
-#include "remotesetup.h"
+#include "main.h"
 
-int remoteSetup(const char* setup_ssid, const char* setup_password) {
+void remoteSetup(String setup_ssid) {
     //prep the IP address
     IPAddress local_ip(192,168,1,1);
     IPAddress gateway(192,168,1,1);
@@ -8,7 +8,7 @@ int remoteSetup(const char* setup_ssid, const char* setup_password) {
     //setup web server
     WiFiServer server(80);
     //start the wifi hotspot for setup
-    WiFi.softAP(setup_ssid, setup_password);
+    WiFi.softAP(setup_ssid.c_str(), NULL);
     WiFi.softAPConfig(local_ip, gateway, subnet);
     Serial.println("AP serving on: " + String(local_ip));
     //start the web server
