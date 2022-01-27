@@ -10,7 +10,7 @@ void remoteSetup(String setup_ssid) {
     //start the wifi hotspot for setup
     WiFi.softAP(setup_ssid.c_str(), NULL);
     WiFi.softAPConfig(local_ip, gateway, subnet);
-    Serial.println("AP serving on: " + String(local_ip));
+    Serial.println("AP serving on: " + local_ip);
     //start the web server
     server.begin();
     //start listening for clients
@@ -21,15 +21,17 @@ void remoteSetup(String setup_ssid) {
         if(client){
             //if a client has connected, print out the client's ip address
             Serial.println("Client connected.");
-            Serial.println("Client IP address: " + String(client.remoteIP()));
+            Serial.println("Client IP address: " + client.remoteIP());
             while (client.connected()) {
                 //read the client's request
-                String request = client.readStringUntil('\r');
-                Serial.println(request);
+                String requestType = client.readStringUntil('\r');
+                String fullRequest = client.readString();
+                Serial.println(requestType);
+                Serial.println(fullRequest);
                 //if the request is not empty
-                if(request != ""){
+                if(requestType != ""){
                     //if the request is a GET request for the index page
-                    if(request.indexOf("GET / HTTP/1.1") != -1){
+                    if(requestType.indexOf("GET / HTTP/1.1") != -1){
                         Serial.println("Serving setup page...");
                         //send the index page
                         client.println("HTTP/1.1 200 OK");
@@ -55,13 +57,15 @@ void remoteSetup(String setup_ssid) {
                         client.println("</html>");
                         //confirm sent
                         Serial.println("Served.");
+                        delay(500);
+                        client.stop();
                     }
                     //if request is a POST request from the form
-                    else if(request.indexOf("POST /wifisave") != -1){
+                    else if(requestType.indexOf("POST /wifisave") != -1){
                         Serial.println("Form was submitted. Saving wifi credentials...");
                         //get the ssid and password from the form
-                        String ssid = request.substring(request.indexOf("ssid=") + 5, request.indexOf("&password="));
-                        String password = request.substring(request.indexOf("password=") + 9, request.indexOf(" HTTP"));
+                        String ssid = fullRequest.substring(fullRequest.indexOf("ssid=") + 5, fullRequest.indexOf("&password="));
+                        String password = fullRequest.substring(fullRequest.indexOf("password=") + 9, fullRequest.indexOf(" HTTP"));
                         //save the ssid and password to storage
                         Preferences storage;
                         storage.begin("settings", false);
@@ -89,16 +93,22 @@ void remoteSetup(String setup_ssid) {
                         client.println("</body>");
                         client.println("</html>");
                         //confirm sent
+                        delay(500);
                         Serial.println("Served.");
+                        client.stop();
                         //reboot the system
                         Serial.println("System will now reboot to test new credentials...");
                         ESP.restart();
                     }
+                    else {
+                        Serial.println("Unknown request. Sending 404...");
+                        client.println("HTTP/1.1 404 Not Found");
+                        Serial.println("Served.");
+                        delay(500);
+                        client.stop();
+                    }
                 }
             }
-            //close the connection
-            client.stop();
-            Serial.println("Client disconnected.");
         }
     }
 }

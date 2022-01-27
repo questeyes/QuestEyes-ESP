@@ -20,9 +20,7 @@ void startOTA(String identifier)
                 type = "flash";
             else
                 type = "filesystem";
-
-            //stop the RTSP stream to prepare for OTA
-            stopRTSP();
+                
             Serial.println("OTA start updating: " + type);
         })
         .onEnd([]() {
@@ -51,9 +49,4 @@ void startOTA(String identifier)
         ArduinoOTA.begin();
         Serial.println("OTA system ready to receive.");
     return;
-}
-
-void stopOTA(void)
-{
-	ArduinoOTA.end();
 }
