@@ -1,5 +1,7 @@
 #include "main.h"
 
+//TODO: Allow user to use non-password protected wifi, but warn the user of potential security issues.
+
 void remoteSetup(String setup_ssid) {
     //prep the IP address
     IPAddress local_ip(192,168,1,1);
