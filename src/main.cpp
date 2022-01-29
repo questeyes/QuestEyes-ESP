@@ -15,94 +15,17 @@
 
 #include "main.h"
 #include "unitidentifier.h"
+#include "versioninfo.h"
 
-#define PART_BOUNDARY "123456789000000000000987654321"
+WebSocketsServer ws = WebSocketsServer(81);
 
-static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
-static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
-static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
+uint8_t cam_num;
+bool connected = false;
+int frame = 0;
+int frame_failure_count = 0;
 
-camera_config_t config;
-
-httpd_handle_t stream_httpd = NULL;
-
-static esp_err_t stream_handler(httpd_req_t *req){
-  camera_fb_t * fb = NULL;
-  esp_err_t res = ESP_OK;
-  size_t _jpg_buf_len = 0;
-  uint8_t * _jpg_buf = NULL;
-  char * part_buf[64];
-
-  res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
-  if(res != ESP_OK){
-    return res;
-  }
-
-  while(true){
-    fb = esp_camera_fb_get();
-    if (!fb) {
-      Serial.println("Camera capture failed");
-      res = ESP_FAIL;
-    } else {
-      if(fb->width > 400){
-        if(fb->format != PIXFORMAT_JPEG){
-          bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
-          esp_camera_fb_return(fb);
-          fb = NULL;
-          if(!jpeg_converted){
-            Serial.println("JPEG compression failed");
-            res = ESP_FAIL;
-          }
-        } else {
-          _jpg_buf_len = fb->len;
-          _jpg_buf = fb->buf;
-        }
-      }
-    }
-    if(res == ESP_OK){
-      size_t hlen = snprintf((char *)part_buf, 64, _STREAM_PART, _jpg_buf_len);
-      res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
-    }
-    if(res == ESP_OK){
-      res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
-    }
-    if(res == ESP_OK){
-      res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
-    }
-    if(fb){
-      esp_camera_fb_return(fb);
-      fb = NULL;
-      _jpg_buf = NULL;
-    } else if(_jpg_buf){
-      free(_jpg_buf);
-      _jpg_buf = NULL;
-    }
-    if(res != ESP_OK){
-      break;
-    }
-    //Serial.printf("MJPG: %uB\n",(uint32_t)(_jpg_buf_len));
-  }
-  return res;
-}
-
-void startCameraServer(){
-  httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-  config.server_port = 80;
-
-  httpd_uri_t index_uri = {
-    .uri       = "/",
-    .method    = HTTP_GET,
-    .handler   = stream_handler,
-    .user_ctx  = NULL
-  };
-  
-  //Serial.printf("Starting web server on port: '%d'\n", config.server_port);
-  if (httpd_start(&stream_httpd, &config) == ESP_OK) {
-    httpd_register_uri_handler(stream_httpd, &index_uri);
-  }
-}
-
-void configureCam(){
+void initializeCam(){
+  camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
   config.pin_d0 = Y2_GPIO_NUM;
@@ -126,6 +49,58 @@ void configureCam(){
   config.frame_size = FRAMESIZE_SVGA;
   config.jpeg_quality = 10;
   config.fb_count = 2;
+
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    Serial.printf("Camera init failed with error: " + err);
+    Serial.println("Device will now reboot due to camera init failure...");    
+    return;
+  }
+}
+
+void liveCam(uint8_t num){
+  //capture a frame
+  camera_fb_t * fb = esp_camera_fb_get();
+  if (!fb) {
+    frame_failure_count++;
+    if (frame_failure_count > 30) {
+      Serial.println("Frame buffer could not be acquired for too long!");
+      ws.sendTXT(cam_num, "EXCESSIVE_FRAME_FAILURE");
+      Serial.println("Device will now reboot due to frame buffer failure...");
+      ESP.restart();
+    }
+      Serial.println("Frame buffer could not be acquired.");
+      return;
+  }
+  frame_failure_count = 0;
+  ws.sendBIN(num, fb->buf, fb->len);
+
+  esp_camera_fb_return(fb);
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.printf("Client [%u] Disconnected!\n", num);
+            connected = false;
+            frame = 0;
+            break;
+        case WStype_CONNECTED:
+            cam_num = num;
+            connected = true;
+            ws.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
+            Serial.printf("Client [%u] Connected!\n", num);
+            break;
+        case WStype_TEXT:
+        case WStype_BIN:
+        case WStype_ERROR:      
+        case WStype_FRAGMENT_TEXT_START:
+        case WStype_FRAGMENT_BIN_START:
+        case WStype_FRAGMENT:
+        case WStype_FRAGMENT_FIN:
+            break;
+    }
 }
 
 // setup runs one time when reset is pressed or the board is powered
@@ -180,37 +155,21 @@ void setup() {
     }
     //if connected, print out the ip address and continue the bootup process
     if(WiFi.status() == WL_CONNECTED){
+      String IP = WiFi.localIP().toString();
       Serial.println("WiFi connected successfully.");
-      Serial.println("IP address: " + String(WiFi.localIP()));
+      Serial.println("IP address: " + IP);
 
       //TODO: SETUP LED BLINKING GREEN AFTER A SUCCESSFUL CONNECTION
 
       //activate the OTA system
       Serial.println("Initializing OTA system...");
       startOTA("QuestEyes-" + uid);
-
-      //prepare the camera
+      
+      //initialize the stream and camera
       Serial.println("Initializing camera...");
-      //initialize the camera using esp_camera
-      configureCam();
-      esp_err_t err = esp_camera_init(&config);
-      if (err != ESP_OK) {
-        Serial.println("Camera init failed with error: " + err);
-        Serial.println("Device will now reboot due to camera init failure.");
-        ESP.restart();
-      } 
-      //set camera parameters
-      sensor_t * s = esp_camera_sensor_get();
-      s->set_dcw(s, 1);
-      s->set_special_effect(s, 2);
-      s->set_whitebal(s, 1);
-      s->set_raw_gma(s, 1);
-      s->set_lenc(s, 1);
-
-      //start camera server
-      Serial.println("Starting camera server...");
-      startCameraServer();
-      Serial.println("Camera server ready.");
+      initializeCam();
+      ws.begin();
+      ws.onEvent(webSocketEvent);
 
       //TODO: SETUP LED LIT GREEN FOR 3 SECONDS AFTER A SUCCESSFUL CAMERA SYSTEM INIT
 
@@ -244,6 +203,11 @@ void loop() {
   //call the OTA system
 	ArduinoOTA.handle();
 
-  //loop
-  delay(100);
+  ws.loop();
+  if(connected == true){
+    frame++;
+    Serial.printf("Sending frame %u\n", frame);
+    liveCam(cam_num);
+    ws.sendTXT(cam_num, "Frame: " + String(frame));
+  }
 }

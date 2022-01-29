@@ -14,6 +14,9 @@
 #include "esp_https_server.h"
 void startOTA(String identifier);
 
+//web sockets and communication
+#include <WebSocketsServer.h>
+
 //camera
 #include "esp_camera.h"
 #include "camera_pins.h"
