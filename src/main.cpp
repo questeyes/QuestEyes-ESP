@@ -21,7 +21,6 @@ WebSocketsServer ws = WebSocketsServer(81);
 
 uint8_t cam_num;
 bool connected = false;
-int frame = 0;
 int frame_failure_count = 0;
 
 void initializeCam(){
@@ -84,12 +83,12 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         case WStype_DISCONNECTED:
             Serial.printf("Client [%u] Disconnected!\n", num);
             connected = false;
-            frame = 0;
             break;
         case WStype_CONNECTED:
             cam_num = num;
-            connected = true;
+            ws.sendTXT(cam_num, "NAME " + ("QuestEyes-" + unit_identifier));
             ws.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
+            connected = true;
             Serial.printf("Client [%u] Connected!\n", num);
             break;
         case WStype_TEXT:
@@ -163,7 +162,7 @@ void setup() {
 
       //activate the OTA system
       Serial.println("Initializing OTA system...");
-      startOTA("QuestEyes-" + uid);
+      //TODO: REWRITE OTA SYSTEM
       
       //initialize the stream and camera
       Serial.println("Initializing camera...");
@@ -200,14 +199,9 @@ void setup() {
 
 // main loop
 void loop() {
-  //call the OTA system
-	ArduinoOTA.handle();
 
   ws.loop();
   if(connected == true){
-    frame++;
-    Serial.printf("Sending frame %u\n", frame);
     liveCam(cam_num);
-    ws.sendTXT(cam_num, "Frame: " + String(frame));
   }
 }
