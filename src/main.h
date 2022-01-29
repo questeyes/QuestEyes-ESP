@@ -8,11 +8,6 @@
 
 //wifi and ota
 #include <WiFi.h>
-#include <ESPmDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
-#include "esp_https_server.h"
-void startOTA(String identifier);
 
 //web sockets and communication
 #include <WebSocketsServer.h>
