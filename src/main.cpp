@@ -17,9 +17,12 @@
 #include "unitidentifier.h"
 #include "versioninfo.h"
 
-WebSocketsServer ws = WebSocketsServer(81);
+WebSocketsServer ws = WebSocketsServer(7580);
+AsyncUDP udp;
 
 uint8_t cam_num;
+String IP;
+int last_heartbeat = 0;
 bool connected = false;
 int frame_failure_count = 0;
 
@@ -53,6 +56,7 @@ void initializeCam(){
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error: " + err);
     Serial.println("Device will now reboot due to camera init failure...");    
+    ESP.restart();
     return;
   }
 }
@@ -78,28 +82,30 @@ void liveCam(uint8_t num){
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-
-    switch(type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("Client [%u] Disconnected!\n", num);
-            connected = false;
-            break;
-        case WStype_CONNECTED:
-            cam_num = num;
-            ws.sendTXT(cam_num, "NAME " + ("QuestEyes-" + unit_identifier));
-            ws.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
-            connected = true;
-            Serial.printf("Client [%u] Connected!\n", num);
-            break;
-        case WStype_TEXT:
-        case WStype_BIN:
-        case WStype_ERROR:      
-        case WStype_FRAGMENT_TEXT_START:
-        case WStype_FRAGMENT_BIN_START:
-        case WStype_FRAGMENT:
-        case WStype_FRAGMENT_FIN:
-            break;
-    }
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.printf("Client disconnected.\n");
+      connected = false;
+      break;
+    case WStype_CONNECTED:
+      connected = true;
+      if (num > 0)  {
+        ws.disconnect(num);
+      }
+      cam_num = num;
+      ws.sendTXT(cam_num, "NAME " + ("QuestEyes-" + unit_identifier));
+      ws.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
+      Serial.printf("Client connected.\n");
+      break;
+    case WStype_TEXT:
+    case WStype_BIN:
+    case WStype_ERROR:      
+      Serial.printf("Client experienced an error. Disconnecting...\n");
+      ws.disconnect(num);
+      connected = false;
+      Serial.printf("Disconnected client.\n");
+      break;
+  }
 }
 
 // setup runs one time when reset is pressed or the board is powered
@@ -138,7 +144,7 @@ void setup() {
     //if ssid contains +'s, replace for spaces
     ssid.replace("+", " ");
     Serial.println("Connecting to WiFi...");
-    //TODO: SETUP SYSTEM DECLARING ITS UNIQUE NAME TO ROUTER INSTEAD OF "ESP Arduino"
+    WiFi.setHostname(("QuestEyes-" + unit_identifier).c_str());
     WiFi.begin(ssid.c_str(), password.c_str());
     int timeout = 0;
     while(WiFi.status() != WL_CONNECTED && timeout < 30000){
@@ -154,7 +160,7 @@ void setup() {
     }
     //if connected, print out the ip address and continue the bootup process
     if(WiFi.status() == WL_CONNECTED){
-      String IP = WiFi.localIP().toString();
+      IP = WiFi.localIP().toString();
       Serial.println("WiFi connected successfully.");
       Serial.println("IP address: " + IP);
 
@@ -163,10 +169,13 @@ void setup() {
       //activate the OTA system
       Serial.println("Initializing OTA system...");
       //TODO: REWRITE OTA SYSTEM
-      
-      //initialize the stream and camera
+
+      //initialize the camera
       Serial.println("Initializing camera...");
       initializeCam();
+
+      //initialize the websocket server for information and OTA
+      Serial.println("Initializing transceive socket...");
       ws.begin();
       ws.onEvent(webSocketEvent);
 
@@ -199,9 +208,21 @@ void setup() {
 
 // main loop
 void loop() {
-
   ws.loop();
+  //if not connected, broadcast a packet on the network
+  if(connected == false){
+    //send a mulicast packet every second
+    String broadcastString = "QUESTEYE_REQ_CONN:" + ("QuestEyes-" + unit_identifier) + ":" + IP;
+    udp.broadcastTo(broadcastString.c_str(), 7579);
+    delay(1000);
+  }
   if(connected == true){
+    //send a heartbeat every 10 seconds
+    if(millis() - last_heartbeat > 5000){
+      ws.sendTXT(cam_num, "HEARTBEAT");
+      last_heartbeat = millis();
+    }
+    //send frame
     liveCam(cam_num);
   }
 }
