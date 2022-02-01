@@ -19,6 +19,7 @@
 #include "esp_timer.h"
 #include "img_converters.h"
 #include "fb_gfx.h"
+void initializeCam();
 
 //remote setup
 void remoteSetup(String setup_ssid);

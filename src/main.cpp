@@ -17,70 +17,20 @@
 #include "unitidentifier.h"
 #include "versioninfo.h"
 
+//setup servers
+//ws is for transmission of camera data and receiving of commands
+//udp is for transmission of connection discover packets
 WebSocketsServer ws = WebSocketsServer(7580);
 AsyncUDP udp;
 
+//define variables that are required further in the program
 uint8_t cam_num;
 String IP;
 int last_heartbeat = 0;
 bool connected = false;
 int frame_failure_count = 0;
 
-void initializeCam(){
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_SVGA;
-  config.jpeg_quality = 10;
-  config.fb_count = 2;
-
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error: " + err);
-    Serial.println("Device will now reboot due to camera init failure...");    
-    ESP.restart();
-    return;
-  }
-}
-
-void liveCam(uint8_t num){
-  //capture a frame
-  camera_fb_t * fb = esp_camera_fb_get();
-  if (!fb) {
-    frame_failure_count++;
-    if (frame_failure_count > 30) {
-      Serial.println("Frame buffer could not be acquired for too long!");
-      ws.sendTXT(cam_num, "EXCESSIVE_FRAME_FAILURE");
-      Serial.println("Device will now reboot due to frame buffer failure...");
-      ESP.restart();
-    }
-      Serial.println("Frame buffer could not be acquired.");
-      return;
-  }
-  frame_failure_count = 0;
-  ws.sendBIN(num, fb->buf, fb->len);
-
-  esp_camera_fb_return(fb);
-}
-
+//function to handle different websocket scenarios, such as connecting, disconnecting, and errors.
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch(type) {
     case WStype_DISCONNECTED:
@@ -106,6 +56,29 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       Serial.printf("Disconnected client.\n");
       break;
   }
+}
+
+//method to capture a frame from the camera and transmit it to the client
+void liveCam(uint8_t num) {
+  //capture a frame
+  camera_fb_t * fb = esp_camera_fb_get();
+  if (!fb) {
+    frame_failure_count++;
+    //if the frame capture fails 30 times in a row, reboot the device
+    if (frame_failure_count > 30) {
+      Serial.println("Frame buffer could not be acquired for too long!");
+      ws.sendTXT(num, "EXCESSIVE_FRAME_FAILURE");
+      Serial.println("Device will now reboot due to frame buffer failure...");
+      ESP.restart();
+    }
+      Serial.println("Frame buffer could not be acquired.");
+      return;
+  }
+  frame_failure_count = 0;
+  //send the frame to the client
+  ws.sendBIN(num, fb->buf, fb->len);
+  //release the frame buffer
+  esp_camera_fb_return(fb);
 }
 
 // setup runs one time when reset is pressed or the board is powered
@@ -209,13 +182,14 @@ void setup() {
 // main loop
 void loop() {
   ws.loop();
-  //if not connected, broadcast a packet on the network
+  //if not connected...
   if(connected == false){
-    //send a mulicast packet every second
+    //broadcast a mulicast packet on the network every second
     String broadcastString = "QUESTEYE_REQ_CONN:" + ("QuestEyes-" + unit_identifier) + ":" + IP;
     udp.broadcastTo(broadcastString.c_str(), 7579);
     delay(1000);
   }
+  //if connected...
   if(connected == true){
     //send a heartbeat every 10 seconds
     if(millis() - last_heartbeat > 5000){
