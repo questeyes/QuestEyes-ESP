@@ -8,6 +8,7 @@
 
 //wifi and ota
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 
 //web sockets and communication
 #include <WebSocketsServer.h>

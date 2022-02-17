@@ -3,14 +3,17 @@
  *  Copyright (C) 2022 Steven Wheeler.
  *  Contact: steven@stevenwheeler.co.uk
  * 
- *  This program is proprietary software. There is NO public license.
- *  Unauthorized redistribution of this software is strictly prohibited.
+ *  This program is proprietary software.
+ *  Modification of this software for personal use only is not prohibited, but also not recommended.
+ *  Unauthorized redistribution and commercial use of this software is strictly prohibited, regardless of any modifications.
  *  
  *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
  *  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
  *  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
  *  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
  *  OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ *  This firmware is designed to run on the QuestEye device to communicate in conjunction with the QuestEye server software.
  **/
 
 #include "main.h"
@@ -18,44 +21,101 @@
 #include "versioninfo.h"
 
 //setup servers
+/** 
+* PORTS
+*   7579 device discovery port
+*   7580 commands/stream socket
+**/
 //ws is for transmission of camera data and receiving of commands
 //udp is for transmission of connection discover packets
-WebSocketsServer ws = WebSocketsServer(7580);
-AsyncUDP udp;
+AsyncUDP discoveryUDP;
+WebSocketsServer communicationSocket = WebSocketsServer(7580);
 
 //define variables that are required further in the program
 uint8_t cam_num;
-String IP;
-int last_heartbeat = 0;
-bool connected = false;
+String localIP;
+String connectedIP;
+int last_frame_timing = 0;
+int last_heartbeat_timing = 0;
 int frame_failure_count = 0;
+bool connected = false;
+bool otaMode = false;
+int updateLength = 0;
+int totalUpdateLength = 0;
 
 //function to handle different websocket scenarios, such as connecting, disconnecting, and errors.
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch(type) {
     case WStype_DISCONNECTED:
-      Serial.printf("Client disconnected.\n");
-      connected = false;
+      if (num == cam_num) {
+        connected = false;
+        otaMode = false;
+        Serial.printf("Client disconnected (%s)\n", connectedIP.c_str());
+        Serial.println("Closed stream connection to client.");
+      }
       break;
     case WStype_CONNECTED:
       connected = true;
-      if (num > 0)  {
-        ws.disconnect(num);
-      }
       cam_num = num;
-      ws.sendTXT(cam_num, "NAME " + ("QuestEyes-" + unit_identifier));
-      ws.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
-      Serial.printf("Client connected.\n");
+      communicationSocket.sendTXT(cam_num, "NAME " + ("QuestEyes-" + unit_identifier));
+      communicationSocket.sendTXT(cam_num, "FIRMWARE_VER " + firmware_version);
+      //set connectedIP to the address of the connected client
+      connectedIP = communicationSocket.remoteIP(cam_num).toString().c_str();
+      Serial.printf("Client connected (%s).\n", connectedIP.c_str());
+      Serial.println("Client is nominal.");
       break;
     case WStype_TEXT:
+      Serial.printf("Command received: %s\n", payload);
+      if (String((char*)payload).startsWith("OTA_MODE")) {
+          //put the device into OTA mode
+          Serial.println("Device entering OTA mode.");
+          otaMode = true;
+          communicationSocket.sendTXT(cam_num, "OTA_MODE_ACTIVE");
+      };
+      break;
     case WStype_BIN:
+      if (otaMode == true) {
+        //if the device is in OTA mode, then send the binary data to the OTA handler
+        updateLength = 0;
+        totalUpdateLength = 0;
+        Serial.println("OTA update received, verifying...");
+        //verify the payload is an official image that is not corrupt
+        
+        //if the payload is an image, begin the update
+        if (String((char*)payload).startsWith("QE_UPDATE_IMG")) {
+          //get the length of the image
+          totalUpdateLength = String((char*)payload).substring(16).toInt();
+          Serial.printf("Image length: %d\n", totalUpdateLength);
+          //split the payload into chunks of 512 bytes in a byte array
+          
+          //send each chunk to the otaUpdateHandler until all chunks have been done
+        }
+      }
+      break;
     case WStype_ERROR:      
       Serial.printf("Client experienced an error. Disconnecting...\n");
-      ws.disconnect(num);
-      connected = false;
+      communicationSocket.disconnect(num);
       Serial.printf("Disconnected client.\n");
       break;
+    default:
+      Serial.printf("Unknown websocket event.\n");
+      break;
   }
+}
+
+//send chunks to this function to update, along with the size of the chunk.
+void otaUpdateHandler(uint8_t *payload, size_t length) {
+  Update.write(payload, length);
+  updateLength += length;
+  Serial.print('.');
+  //send OTA update progress to the client as a percentage
+  communicationSocket.sendTXT(cam_num, "OTA_UPDATE_PROGRESS " + String(updateLength * 100 / totalUpdateLength));
+  if(updateLength != totalUpdateLength) return;
+  Update.end(true);
+  communicationSocket.sendTXT(cam_num, "OTA_UPDATE_COMPLETE");
+  Serial.printf("\nUpdate Success, Total Size: %u\nRebooting...\n", updateLength);
+  // Restart ESP32 to see changes 
+  ESP.restart();
 }
 
 //method to capture a frame from the camera and transmit it to the client
@@ -67,7 +127,7 @@ void liveCam(uint8_t num) {
     //if the frame capture fails 30 times in a row, reboot the device
     if (frame_failure_count > 30) {
       Serial.println("Frame buffer could not be acquired for too long!");
-      ws.sendTXT(num, "EXCESSIVE_FRAME_FAILURE");
+      communicationSocket.sendTXT(num, "EXCESSIVE_FRAME_FAILURE");
       Serial.println("Device will now reboot due to frame buffer failure...");
       ESP.restart();
     }
@@ -76,7 +136,7 @@ void liveCam(uint8_t num) {
   }
   frame_failure_count = 0;
   //send the frame to the client
-  ws.sendBIN(num, fb->buf, fb->len);
+  communicationSocket.sendBIN(num, fb->buf, fb->len);
   //release the frame buffer
   esp_camera_fb_return(fb);
 }
@@ -119,6 +179,7 @@ void setup() {
     Serial.println("Connecting to WiFi...");
     WiFi.setHostname(("QuestEyes-" + unit_identifier).c_str());
     WiFi.begin(ssid.c_str(), password.c_str());
+    WiFi.setSleep(false);
     int timeout = 0;
     while(WiFi.status() != WL_CONNECTED && timeout < 30000){
 
@@ -133,9 +194,9 @@ void setup() {
     }
     //if connected, print out the ip address and continue the bootup process
     if(WiFi.status() == WL_CONNECTED){
-      IP = WiFi.localIP().toString();
+      localIP = WiFi.localIP().toString();
       Serial.println("WiFi connected successfully.");
-      Serial.println("IP address: " + IP);
+      Serial.println("Local IP address: " + localIP);
 
       //TODO: SETUP LED BLINKING GREEN AFTER A SUCCESSFUL CONNECTION
 
@@ -148,9 +209,9 @@ void setup() {
       initializeCam();
 
       //initialize the websocket server for information and OTA
-      Serial.println("Initializing transceive socket...");
-      ws.begin();
-      ws.onEvent(webSocketEvent);
+      Serial.println("Initializing command socket...");
+      communicationSocket.begin();
+      communicationSocket.onEvent(webSocketEvent);
 
       //TODO: SETUP LED LIT GREEN FOR 3 SECONDS AFTER A SUCCESSFUL CAMERA SYSTEM INIT
 
@@ -181,22 +242,31 @@ void setup() {
 
 // main loop
 void loop() {
-  ws.loop();
+  communicationSocket.loop();
   //if not connected...
   if(connected == false){
     //broadcast a mulicast packet on the network every second
-    String broadcastString = "QUESTEYE_REQ_CONN:" + ("QuestEyes-" + unit_identifier) + ":" + IP;
-    udp.broadcastTo(broadcastString.c_str(), 7579);
+    String broadcastString = "QUESTEYE_REQ_CONN:" + ("QuestEyes-" + unit_identifier) + ":" + localIP;
+    discoveryUDP.broadcastTo(broadcastString.c_str(), 7579);
     delay(1000);
   }
   //if connected...
   if(connected == true){
-    //send a heartbeat every 10 seconds
-    if(millis() - last_heartbeat > 5000){
-      ws.sendTXT(cam_num, "HEARTBEAT");
-      last_heartbeat = millis();
+    //send a heart every 5 seconds. If the server does not receive one within 10 seconds, it will assume the connection is dead.
+      if(millis() - last_heartbeat_timing > 5000){
+        communicationSocket.sendTXT(cam_num, "HEARTBEAT");
+        last_heartbeat_timing = millis();
+      };
+    if(otaMode == false){
+      //send frame
+      if(millis() - last_frame_timing > 33.33){
+        liveCam(cam_num);
+        last_frame_timing = millis();
+      };
     }
-    //send frame
-    liveCam(cam_num);
+    else {
+      //if ota mode is on...
+
+    }
   }
 }
