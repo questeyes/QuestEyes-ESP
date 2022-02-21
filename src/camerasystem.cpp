@@ -25,8 +25,8 @@ void initializeCam(){
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_SVGA; //resolution: 640x480
-  config.jpeg_quality = 40;
+  config.frame_size = FRAMESIZE_UXGA;
+  config.jpeg_quality = 10;
   config.fb_count = 2;
 
   //initialize the camera with the config
@@ -38,17 +38,15 @@ void initializeCam(){
     return;
   }
   sensor_t * s = esp_camera_sensor_get();
-  s->set_special_effect(s, 1);
-  s->set_awb_gain(s, 1);
-  s->set_whitebal(s, 1);
-  s->set_wb_mode(s, 4);
-  s->set_ae_level(s, 2);
-  s->set_aec_value(s, 1200);
-  s->set_exposure_ctrl(s, 1);
-  s->set_agc_gain(s, 30);
-  s->set_gainceiling(s, (gainceiling_t)6);
   s->set_raw_gma(s, 1);
   s->set_lenc(s, 1);
   s->set_hmirror(s, 1);
   s->set_dcw(s, 1);
+
+  s->set_res_raw(s,          0,          0,         0,         0,         0,            244,        1536,       732,         768,         300,       true,        true);
+  //set_res_raw *sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning)
+
+  s->set_brightness(s, 2);     // -2 to 2
+  s->set_contrast(s, 2);       // -2 to 2
+  s->set_saturation(s, 2);     // -2 to 2
 }
