@@ -1,17 +1,10 @@
 /** 
  *  QuestEyes Firmware Package
- *  Copyright (C) 2022 Steven Wheeler.
+ *  2022 Steven Wheeler.
  *  Contact: steven@stevenwheeler.co.uk
  * 
- *  This program is proprietary software.
- *  Modification of this software for personal use only is not prohibited, but also not recommended.
- *  Unauthorized redistribution and commercial use of this software is strictly prohibited, regardless of any modifications.
- *  
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
- *  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
- *  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
- *  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
- *  OR OTHER DEALINGS IN THE SOFTWARE.
+ *  This program is licenced under the GNU General Public License version 3.
+ *  You can view the licence at http://www.gnu.org/licenses/gpl-3.0.html
  * 
  *  This firmware is designed to run on the QuestEye device to communicate in conjunction with the QuestEye server software.
  **/
@@ -80,15 +73,16 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         totalUpdateLength = 0;
         Serial.println("OTA update received, verifying...");
         //verify the payload is an official image that is not corrupt
-        
+        //TODO: OTA SYSTEM
         //if the payload is an image, begin the update
         if (String((char*)payload).startsWith("QE_UPDATE_IMG")) {
           //get the length of the image
           totalUpdateLength = String((char*)payload).substring(16).toInt();
           Serial.printf("Image length: %d\n", totalUpdateLength);
           //split the payload into chunks of 512 bytes in a byte array
-          
+          //TODO: OTA SYSTEM
           //send each chunk to the otaUpdateHandler until all chunks have been done
+          //TODO: OTA SYSTEM
         }
       }
       break;

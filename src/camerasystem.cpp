@@ -44,9 +44,4 @@ void initializeCam(){
   s->set_dcw(s, 1);
 
   s->set_res_raw(s,          0,          0,         0,         0,         0,            244,        1536,       732,         768,         300,       true,        true);
-  //set_res_raw *sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning)
-
-  s->set_brightness(s, 2);     // -2 to 2
-  s->set_contrast(s, 2);       // -2 to 2
-  s->set_saturation(s, 2);     // -2 to 2
 }
