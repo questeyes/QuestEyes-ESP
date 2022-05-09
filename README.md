@@ -5,5 +5,5 @@ It includes a Wifi setup proceedure, Wifi capabilities, Over-The-Air update capa
 
 QuestEyes is intended to be used with the accompanying PC software.
 
-## Looking for the PC software?
-https://github.com/robotprobot/QuestEyes-Server
+## Find out more about QuestEyes
+https://github.com/questeyes
