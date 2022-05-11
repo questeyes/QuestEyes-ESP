@@ -2,11 +2,12 @@
 
 //TODO: Allow user to use non-password protected wifi, but warn the user of potential security issues.
 
-void remoteSetup(String setup_ssid) {
+void remoteSetup(String setup_ssid)
+{
     //prep the IP address
-    IPAddress local_ip(192,168,1,1);
-    IPAddress gateway(192,168,1,1);
-    IPAddress subnet(255,255,255,0);
+    IPAddress local_ip(192, 168, 1, 1);
+    IPAddress gateway(192, 168, 1, 1);
+    IPAddress subnet(255, 255, 255, 0);
     //setup web server
     WiFiServer server(80);
     //start the wifi hotspot for setup
@@ -17,23 +18,28 @@ void remoteSetup(String setup_ssid) {
     server.begin();
     //start listening for clients
     Serial.println("Waiting for client...");
-    while(true){
+    while (true)
+    {
         //check if a client has connected
         WiFiClient client = server.available();
-        if(client){
+        if (client)
+        {
             //if a client has connected, print out the client's ip address
             Serial.println("Client connected.");
             Serial.println("Client IP address: " + client.remoteIP());
-            while (client.connected()) {
+            while (client.connected())
+            {
                 //read the client's request
                 String requestType = client.readStringUntil('\r');
                 String fullRequest = client.readString();
                 Serial.println(requestType);
                 Serial.println(fullRequest);
                 //if the request is not empty
-                if(requestType != ""){
+                if (requestType != "")
+                {
                     //if the request is a GET request for the index page
-                    if(requestType.indexOf("GET / HTTP/1.1") != -1){
+                    if (requestType.indexOf("GET / HTTP/1.1") != -1)
+                    {
                         Serial.println("Serving setup page...");
                         //send the index page
                         client.println("HTTP/1.1 200 OK");
@@ -63,7 +69,8 @@ void remoteSetup(String setup_ssid) {
                         client.stop();
                     }
                     //if request is a POST request from the form
-                    else if(requestType.indexOf("POST /wifisave") != -1){
+                    else if (requestType.indexOf("POST /wifisave") != -1)
+                    {
                         Serial.println("Form was submitted. Saving wifi credentials...");
                         //get the ssid and password from the form
                         String ssid = fullRequest.substring(fullRequest.indexOf("ssid=") + 5, fullRequest.indexOf("&password="));
@@ -102,7 +109,8 @@ void remoteSetup(String setup_ssid) {
                         Serial.println("System will now reboot to test new credentials...");
                         ESP.restart();
                     }
-                    else {
+                    else
+                    {
                         Serial.println("Unknown request. Sending 404...");
                         client.println("HTTP/1.1 404 Not Found");
                         Serial.println("Served.");

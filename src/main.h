@@ -1,7 +1,11 @@
 //system files
 #include <Arduino.h>
-#include "soc/soc.h" //disable brownout problems
-#include "soc/rtc_cntl_reg.h"  //disable brownout problems
+#include "soc/soc.h"          //disable brownout problems
+#include "soc/rtc_cntl_reg.h" //disable brownout problems
+
+//hardware information
+#include "unitidentifier.h"
+#include "versioninfo.h"
 
 //storage
 #include <Preferences.h>
@@ -13,6 +17,16 @@
 //web sockets and communication
 #include <WebSocketsServer.h>
 #include <AsyncUDP.h>
+/** 
+* PORTS
+*   7579 device discovery port
+*   7580 commands/stream socket
+**/
+//ws is for transmission of camera data and receiving of commands
+//udp is for transmission of connection discover packets
+AsyncUDP discoveryUDP;
+WebSocketsServer communicationSocket = WebSocketsServer(7580);
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 
 //camera
 #include "esp_camera.h"
@@ -21,6 +35,10 @@
 #include "img_converters.h"
 #include "fb_gfx.h"
 void initializeCam();
+void captureCam(uint8_t num);
 
 //remote setup
 void remoteSetup(String setup_ssid);
+
+//startup
+void startup(String uid, String ssid, String password);

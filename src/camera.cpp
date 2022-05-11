@@ -43,5 +43,31 @@ void initializeCam(){
   s->set_hmirror(s, 1);
   s->set_dcw(s, 1);
 
-  s->set_res_raw(s,          0,          0,         0,         0,         0,            244,        1536,       732,         768,         300,       true,        true);
+  s->set_res_raw(s, 0, 0, 0, 0, 0, 244, 1536, 732, 768, 300, true, true);
+}
+
+int frame_failure_count = 0;
+void captureCam(uint8_t num)
+{
+  //capture a frame
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb)
+  {
+    frame_failure_count++;
+    //if the frame capture fails 30 times in a row, reboot the device
+    if (frame_failure_count > 30)
+    {
+      Serial.println("Frame buffer could not be acquired for too long!");
+      communicationSocket.sendTXT(num, "EXCESSIVE_FRAME_FAILURE");
+      Serial.println("Device will now reboot due to frame buffer failure...");
+      ESP.restart();
+    }
+    Serial.println("Frame buffer could not be acquired.");
+    return;
+  }
+  frame_failure_count = 0;
+  //send the frame to the client
+  communicationSocket.sendBIN(num, fb->buf, fb->len);
+  //release the frame buffer
+  esp_camera_fb_return(fb);
 }
