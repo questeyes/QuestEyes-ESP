@@ -2,6 +2,12 @@
 
 void startup(String uid, String ssid, String password)
 {
+    //print system info to debug
+    Serial.println("Total heap: " + ESP.getHeapSize());
+    Serial.println("Free heap: " + ESP.getFreeHeap());
+    Serial.println("Total PSRAM: " + ESP.getPsramSize());
+    Serial.println("Free PSRAM: " + ESP.getFreePsram());
+
     //TODO: SETUP LED LIT WHITE WHILE BOOTING
 
     //TODO: CHECK IF POWER BUTTON IS HELD LONG ENOUGH TO CLEAR CREDENTIALS AND RESET
