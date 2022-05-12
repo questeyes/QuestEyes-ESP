@@ -8,12 +8,15 @@ void startup(String uid, String ssid, String password)
     //TODO: HAVE IT SO THAT THE LEDS ALTERNATE WHITE AND ORANGE UNTIL RESET THRESHOLD
     //TODO: THEN ALTERNATE ORANGE AND GREEN WHILE RESETTING
 
-    //if ssid and password are not empty, connect to wifi
+    //initialize the camera
+    Serial.println("Initializing hardware (camera assembly)...");
+    initializeCam();
+
     //try to connect to wifi for 30 seconds
     //if ssid contains +'s, replace for spaces
     ssid.replace("+", " ");
     Serial.println("Connecting to WiFi...");
-    WiFi.setHostname(("QuestEyes-" + unit_identifier).c_str());
+    WiFi.setHostname(("QuestEyes-" + uid).c_str());
     WiFi.begin(ssid.c_str(), password.c_str());
     WiFi.setSleep(false);
     int timeout = 0;
@@ -37,14 +40,6 @@ void startup(String uid, String ssid, String password)
         Serial.println("Local IP address: " + WiFi.localIP().toString());
 
         //TODO: SETUP LED BLINKING GREEN AFTER A SUCCESSFUL CONNECTION
-
-        //activate the OTA system
-        Serial.println("Initializing OTA system...");
-        //TODO: INITIALIZE OTA SYSTEM
-
-        //initialize the camera
-        Serial.println("Initializing camera...");
-        initializeCam();
 
         //initialize the websocket server for information and OTA
         Serial.println("Initializing command socket...");

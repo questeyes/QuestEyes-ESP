@@ -13,6 +13,7 @@
 //wifi and ota
 #include <WiFi.h>
 #include <ArduinoOTA.h>
+void processOTA(uint8_t *payload, int length);
 
 //web sockets and communication
 #include <WebSocketsServer.h>
@@ -22,8 +23,8 @@
 *   7579 device discovery port
 *   7580 commands/stream socket
 **/
-//ws is for transmission of camera data and receiving of commands
-//udp is for transmission of connection discover packets
+//udp is for transmission of connection discovery packets
+//ws is for transmission of camera data, recieving of commands and OTA files for updates
 AsyncUDP discoveryUDP;
 WebSocketsServer communicationSocket = WebSocketsServer(7580);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);

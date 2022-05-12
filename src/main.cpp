@@ -6,7 +6,7 @@
  *  This program is licenced under the GNU General Public License version 3.
  *  You can view the licence at http://www.gnu.org/licenses/gpl-3.0.html
  * 
- *  This firmware is designed to run on the QuestEye device to communicate in conjunction with the QuestEye server software.
+ *  This firmware is designed to run on a QuestEye's hardware device to communicate in conjunction with the QuestEyes server software.
  **/
 
 #include "main.h"
@@ -18,8 +18,6 @@ int last_frame_timing = 0;
 int last_heartbeat_timing = 0;
 bool connected = false;
 bool otaMode = false;
-int updateLength = 0;
-int totalUpdateLength = 0;
 
 // setup runs to connect to internet and prepare broadcast to server, or starts remote setup
 void setup()
@@ -80,17 +78,14 @@ void loop()
     };
     if (otaMode == false)
     {
-      //send frame
+      //send frame (30 times per second for 30fps)
       if (millis() - last_frame_timing > 33.33)
       {
         captureCam(cam_num);
         last_frame_timing = millis();
       };
     }
-    else
-    {
-      //if ota mode is on...
-    }
+    //hardware will still end heartbeats but not camera information if otaMode == true.
   }
 }
 
@@ -125,17 +120,13 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
       //put the device into OTA mode
       Serial.println("Device entering OTA mode.");
       otaMode = true;
-      communicationSocket.sendTXT(cam_num, "OTA_MODE_ACTIVE");
+      communicationSocket.sendTXT(cam_num, "OTA_MODE_ACTIVE"); //send a confirmation of ota mode to the client
     };
     break;
   case WStype_BIN:
     if (otaMode == true)
     {
-      //if the device is in OTA mode, then send the binary data to the OTA handler
-      updateLength = 0;
-      totalUpdateLength = 0;
-      Serial.println("OTA update received, verifying...");
-      //TODO: OTA SYSTEM
+      processOTA(payload, length);
     }
     break;
   case WStype_ERROR:
